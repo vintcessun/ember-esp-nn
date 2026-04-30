@@ -5,10 +5,13 @@ edition = "2024"
 links = "esp_nn"
 description = "Raw Rust FFI bindings for Espressif ESP-NN"
 license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/vintcessun/burn_esp_nn"
 keywords = ["esp", "esp-nn", "ffi", "embedded", "no-std"]
 categories = ["embedded", "external-ffi-bindings", "no-std"]
 include = [
     "Cargo.toml",
+    "README.md",
     "build.rs",
     "wrapper.h",
     "src/**",
