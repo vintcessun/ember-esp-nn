@@ -1,8 +1,10 @@
 {
-  "rust-analyzer.check.command": "clippy",
   "rust-analyzer.cargo.allTargets": false,
   "rust-analyzer.check.allTargets": false,
-  "rust-analyzer.cargo.features": "all",
+  "rust-analyzer.cargo.target": "xtensa-esp32s3-none-elf",
+  "rust-analyzer.cargo.features": [
+    "esp32s3"
+  ],
   "rust-analyzer.linkedProjects": [
     "Cargo.toml"
   ],
