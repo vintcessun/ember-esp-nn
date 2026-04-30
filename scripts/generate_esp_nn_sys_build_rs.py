@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-CMAKE_FILE = ROOT / "vendor" / "esp-nn" / "CMakeLists.txt"
+CMAKE_FILE = ROOT / "crates" / "esp_nn_sys" / "vendor" / "esp-nn" / "CMakeLists.txt"
 TEMPLATE_FILE = ROOT / "crates" / "esp_nn_sys" / "build-template.rs"
 OUTPUT_FILE = ROOT / "crates" / "esp_nn_sys" / "build.rs"
 

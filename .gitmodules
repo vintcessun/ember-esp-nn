@@ -1,3 +1,3 @@
-[submodule "vendor/esp-nn"]
-	path = vendor/esp-nn
+[submodule "crates/esp_nn_sys/vendor/esp-nn"]
+	path = crates/esp_nn_sys/vendor/esp-nn
 	url = https://github.com/espressif/esp-nn.git

@@ -88,17 +88,14 @@ fn default_compiler(target: &str, chip: Chip) -> Option<&'static str> {
 }
 
 fn log_build_step(message: impl AsRef<str>) {
-    println!("cargo:warning=esp-nn build: {}", message.as_ref());
+    if env_flag_enabled("ESP_NN_SYS_VERBOSE") {
+        println!("cargo:warning=esp-nn build: {}", message.as_ref());
+    }
 }
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let workspace_dir = manifest_dir
-        .ancestors()
-        .nth(2)
-        .expect("esp_nn_sys should be under crates/esp_nn_sys");
-
-    let esp_nn_dir = workspace_dir.join("vendor").join("esp-nn");
+    let esp_nn_dir = find_esp_nn_dir(&manifest_dir);
     let include_dir = esp_nn_dir.join("include");
     let common_dir = esp_nn_dir.join("src").join("common");
 
@@ -109,6 +106,20 @@ fn main() {
 
     generate_bindings(&include_dir, &common_dir, chip);
     compile_esp_nn(&esp_nn_dir, &include_dir, &common_dir, chip);
+}
+
+fn find_esp_nn_dir(manifest_dir: &Path) -> PathBuf {
+    let packaged_dir = manifest_dir.join("vendor").join("esp-nn");
+    if packaged_dir.exists() {
+        return packaged_dir;
+    }
+
+    manifest_dir
+        .ancestors()
+        .nth(2)
+        .expect("esp_nn_sys should be under crates/esp_nn_sys")
+        .join("vendor")
+        .join("esp-nn")
 }
 
 fn generate_bindings(include_dir: &Path, common_dir: &Path, chip: Chip) {
@@ -157,6 +168,7 @@ fn compile_esp_nn(esp_nn_dir: &Path, include_dir: &Path, common_dir: &Path, chip
     println!("cargo:rerun-if-env-changed=TARGET_CFLAGS");
     println!("cargo:rerun-if-env-changed=CFLAGS_{target}");
     println!("cargo:rerun-if-env-changed=CONFIG_NN_SKIP_NUDGE");
+    println!("cargo:rerun-if-env-changed=ESP_NN_SYS_VERBOSE");
     println!(
         "cargo:rerun-if-env-changed=CFLAGS_{}",
         target.replace('-', "_")
