@@ -633,13 +633,17 @@ fn compile_esp_nn(esp_nn_dir: &Path, include_dir: &Path, common_dir: &Path, chip
         .flag_if_supported("-O2")
         .flag_if_supported("-Wno-unused-function");
 
-    if env_flag_enabled("CONFIG_NN_SKIP_NUDGE") {
-        compile_defines.push("SKIP_NUDGE");
-        build.define("SKIP_NUDGE", None);
-    }
-
     match chip {
         Chip::Esp32s3 => {
+            // SKIP_NUDGE: ON by default for esp32s3, matching IDF production (CONFIG_NN_SKIP_NUDGE=y).
+            // Suppress with CONFIG_NN_SKIP_NUDGE=false.
+            let skip_nudge = env::var("CONFIG_NN_SKIP_NUDGE")
+                .map(|v| !matches!(v.to_ascii_lowercase().as_str(), "0" | "false" | "n" | "no" | "off"))
+                .unwrap_or(true);
+            if skip_nudge {
+                compile_defines.push("SKIP_NUDGE");
+                build.define("SKIP_NUDGE", None);
+            }
             compile_defines.push("CONFIG_IDF_TARGET_ESP32S3=1");
             compile_flags.push("-mlongcalls");
             compile_flags.push("-fno-unroll-loops");
@@ -649,13 +653,22 @@ fn compile_esp_nn(esp_nn_dir: &Path, include_dir: &Path, common_dir: &Path, chip
                 .flag_if_supported("-fno-unroll-loops");
         }
         Chip::Esp32p4 => {
+            if env_flag_enabled("CONFIG_NN_SKIP_NUDGE") {
+                compile_defines.push("SKIP_NUDGE");
+                build.define("SKIP_NUDGE", None);
+            }
             compile_defines.push("CONFIG_IDF_TARGET_ESP32P4=1");
             compile_flags.push("-march=rv32imafc_xespv");
             build
                 .define("CONFIG_IDF_TARGET_ESP32P4", Some("1"))
                 .flag_if_supported("-march=rv32imafc_xespv");
         }
-        Chip::Ansi => {}
+        Chip::Ansi => {
+            if env_flag_enabled("CONFIG_NN_SKIP_NUDGE") {
+                compile_defines.push("SKIP_NUDGE");
+                build.define("SKIP_NUDGE", None);
+            }
+        }
     }
 
     if compile_defines.is_empty() {

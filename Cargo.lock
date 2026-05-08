@@ -1307,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "esp_nn_sys"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "bindgen",
  "cc",
