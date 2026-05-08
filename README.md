@@ -1,57 +1,31 @@
 # ember-esp-nn
 
-ESP-NN-backed inference components for Ember on Espressif targets.
+ESP-NN-backed inference backend for Ember on Espressif targets.
 
-This repository focuses on the backend inference layer that uses [Espressif ESP-NN](https://github.com/espressif/esp-nn). The `esp_nn_sys` crate is the raw `no_std` binding layer: it generates Rust FFI bindings for ESP-NN, compiles the matching ESP-NN C/assembly sources for selected ESP targets, and exposes the raw ESP-NN symbols to higher-level inference code. The `ember_esp_nn` crate is the higher-level Ember backend crate that implements `ember_infer_core::KernelBackend` on top of those bindings.
-
-## Workspace Layout
+This repository provides two `no_std` crates:
 
 ```text
 crates/
   ember_esp_nn/  Ember KernelBackend implementation backed by ESP-NN
-  esp_nn_sys/     Raw FFI bindings and native ESP-NN build script
+  esp_nn_sys/     Raw Rust FFI bindings and native ESP-NN build layer
 ```
 
-`esp_nn_sys` vendors ESP-NN as a git submodule at:
+`esp_nn_sys` vendors [Espressif ESP-NN](https://github.com/espressif/esp-nn) as a git submodule and builds the selected ESP-NN C/assembly kernels into a static native library. `ember_esp_nn` exposes those kernels through `ember_infer_core::KernelBackend`.
 
-```text
-crates/esp_nn_sys/vendor/esp-nn
-```
+## Supported Targets
 
-## Status
-
-- `ember_esp_nn` is a `#![no_std]` backend crate for `ember-infer-core`.
-- `ember_esp_nn` currently provides the backend shape, feature forwarding, quantization helper, and operation stubs. Operation calls return `KernelError::InternalError` until the ESP-NN invoke logic is filled in.
-- `esp_nn_sys` builds ESP-NN into a static native library with `cc`.
-- Rust bindings are generated from ESP-NN headers with `bindgen`.
-- Both crates are `#![no_std]`.
-- ANSI, ESP32-S3, and ESP32-P4 source selections are supported.
-- The final native link is carried through Cargo metadata from the sys crate to downstream binaries.
-- `esp_nn_sys` is responsible for ESP-NN bindings; `ember_esp_nn` builds on top of it.
-
-## Supported Backends
-
-| Feature | Intended target | Native compiler | ESP-NN sources |
+| Feature | Target | Native compiler | ESP-NN sources |
 | --- | --- | --- | --- |
-| `ansi` | Generic supported target | target-appropriate GCC | Portable ANSI ESP-NN sources |
-| `esp32s3` | `xtensa-esp32s3-none-elf` | `xtensa-esp32s3-elf-gcc` | ANSI + ESP32-S3 optimized sources |
-| `esp32p4` | `riscv32imafc-unknown-none-elf` | `riscv32-esp-elf-gcc` | ANSI + ESP32-P4 optimized sources |
+| `ansi` | Generic supported target | target-appropriate GCC | Portable ANSI kernels |
+| `esp32s3` | `xtensa-esp32s3-none-elf` | `xtensa-esp32s3-elf-gcc` | ANSI + ESP32-S3 optimized kernels |
+| `esp32p4` | `riscv32imafc-unknown-none-elf` | `riscv32-esp-elf-gcc` | ANSI + ESP32-P4 optimized kernels |
 
-If no feature is selected, `esp_nn_sys` builds the ANSI source set.
-
-`ember_esp_nn` forwards the hardware feature flags to `esp_nn_sys`:
-
-| Feature | Effect |
-| --- | --- |
-| `ansi` | Enables portable ANSI ESP-NN kernels through `esp_nn_sys/ansi` |
-| `esp32s3` | Enables ESP32-S3 optimized kernels through `esp_nn_sys/esp32s3` |
-| `esp32p4` | Enables ESP32-P4 optimized kernels through `esp_nn_sys/esp32p4` |
-| `assume-aligned` | Trust caller-provided buffers are already 16-byte aligned |
+`ember_esp_nn` enables `esp32s3` by default.
 
 ## Requirements
 
 - Rust with the target you want to build for.
-- The ESP Rust toolchain for Xtensa targets.
+- ESP Rust toolchain for Xtensa targets.
 - ESP GCC toolchains available on `PATH`:
   - `xtensa-esp-elf-gcc` for ANSI builds targeting Xtensa.
   - `xtensa-esp32s3-elf-gcc` for optimized ESP32-S3 builds.
@@ -72,41 +46,27 @@ For an existing clone:
 git submodule update --init --recursive
 ```
 
-## Build Checks
+## Build
 
-Do not suppress warnings with `#[allow(...)]` or equivalent crate-level lints. If a warning is expected during an incremental implementation phase, leave it visible and document why it is acceptable for that phase.
-
-ANSI on RISC-V:
-
-```powershell
-cargo clippy -p esp_nn_sys --target riscv32imac-unknown-none-elf --features ansi
-```
-
-ANSI on Xtensa:
-
-```powershell
-cargo clippy -p esp_nn_sys --target xtensa-esp32s3-none-elf --features ansi
-```
-
-ESP32-S3 optimized sources:
-
-```powershell
-cargo clippy -p esp_nn_sys --target xtensa-esp32s3-none-elf --features esp32s3
-```
-
-ESP32-P4 optimized sources:
-
-```powershell
-cargo clippy -p esp_nn_sys --target riscv32imafc-unknown-none-elf --features esp32p4
-```
-
-Ember backend checks:
+ESP32-S3:
 
 ```powershell
 cargo check -p ember_esp_nn --target xtensa-esp32s3-none-elf --features esp32s3
+```
+
+ESP32-P4:
+
+```powershell
 cargo check -p ember_esp_nn --target riscv32imafc-unknown-none-elf --features esp32p4
+```
+
+ANSI:
+
+```powershell
 cargo check -p ember_esp_nn --features ansi
 ```
+
+## Hardware Test
 
 ESP32-S3 hardware inference test:
 
@@ -116,7 +76,7 @@ cd tests\ember-infer-test
 cargo run
 ```
 
-The test binary uses `EspBackend` with the sine model:
+The test binary uses `EspBackend` with:
 
 ```text
 models/sine.tflite
@@ -124,39 +84,22 @@ models/sine.tflite
 
 Output is emitted through defmt/RTT. The firmware prints sine `PASS` lines and reports the elapsed runtime when the inference test finishes.
 
-## Build Logging
+## Benchmarks
 
-The build script is quiet by default. To confirm the selected compiler, flags, defines, and ESP-NN source files, set:
+Benchmarks are measured on ESP32-S3 at 240 MHz. Outputs are checked against ANSI reference kernels. Basic math kernels use one untimed warm-up call before profiling to reduce first-call cache effects.
 
-```powershell
-$env:ESP_NN_SYS_VERBOSE='1'
-cargo clippy -p esp_nn_sys --target riscv32imafc-unknown-none-elf --features esp32p4
-```
-
-## Regenerating `build.rs`
-
-`crates/esp_nn_sys/build.rs` is generated from `crates/esp_nn_sys/build-template.rs` and the vendored ESP-NN `CMakeLists.txt`.
-
-After changing the template or source extraction logic, run:
-
-```powershell
-python scripts\generate_esp_nn_sys_build_rs.py
-```
-
-Check that the generated file is up to date:
-
-```powershell
-python scripts\generate_esp_nn_sys_build_rs.py --check
-```
-
-## Packaging `esp_nn_sys`
-
-From the sys crate directory:
-
-```powershell
-cd crates\esp_nn_sys
-cargo package --allow-dirty
-cargo publish --dry-run --allow-dirty
-```
-
-The packaged crate includes the required ESP-NN headers and source files under `vendor/esp-nn`, so crates.io users do not need the workspace-level git submodule.
+| Kernel | ANSI cycles | Optimized cycles | Speedup |
+| --- | ---: | ---: | ---: |
+| `add_s8` | 304,782 | 60,945 | 5.00x |
+| `mul_s8` | 129,403 | 29,451 | 4.39x |
+| `mul_broadcast_ch_s8` | 243,195 | 55,811 | 4.35x |
+| `depthwise_conv_s8` | 58,366 | 11,443 | 5.10x |
+| `conv_s8` | 8,539,821 | 708,197 | 12.05x |
+| `relu6_s8` | 1,121 | 92 | 12.18x |
+| `avg_pool_s8` | 425,958 | 118,199 | 3.60x |
+| `max_pool_s8` | 396,945 | 48,109 | 8.25x |
+| `fc_s8` | 837 | 757 | 1.10x |
+| `fc_per_ch_s8` | 1,294 | 1,159 | 1.11x |
+| `softmax_s8` | 14,630 | 10,814 | 1.35x |
+| `hard_swish_s8` | 865,617 | 94,826 | 9.12x |
+| `mean_nhwc_s8` | 13,243 | 12,525 | 1.05x |

@@ -3,7 +3,7 @@ target = "xtensa-esp32s3-none-elf"
 rustflags = ["-C", "link-arg=-nostartfiles"]
 
 [target.xtensa-esp32s3-none-elf]
-runner = "probe-rs run --chip=esp32s3 --preverify --always-print-stacktrace --no-location"
+runner = "probe-rs run --chip=esp32s3 --preverify --always-print-stacktrace --no-location --connect-under-reset"
 
 [env]
 DEFMT_LOG = "info"

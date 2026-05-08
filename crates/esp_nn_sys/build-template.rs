@@ -147,12 +147,387 @@ fn generate_bindings(include_dir: &Path, common_dir: &Path, chip: Chip) {
         Chip::Ansi => {}
     }
 
-    let bindings = builder.generate().expect("failed to generate bindings");
-
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("failed to write bindings");
+    let bindings = builder.generate().expect("failed to generate bindings");
+    let src = fix_abi_stack_args(bindings.to_string());
+
+    std::fs::write(out_path.join("bindings.rs"), src).expect("failed to write bindings");
+}
+
+const ABI_WRAPPERS: &str = r#"
+// ABI-correct wrappers - expose original C types
+// (Xtensa windowed ABI: stack-passed u16/i16 args widened to u32/i32 internally)
+
+// ---- Pool wrappers ----
+
+#[inline]
+pub unsafe fn esp_nn_avg_pool_s8_ansi(
+    input: *const i8,
+    input_wd: u16, input_ht: u16,
+    output: *mut i8,
+    output_wd: u16, output_ht: u16,
+    stride_wd: u16, stride_ht: u16,
+    filter_wd: u16, filter_ht: u16,
+    pad_wd: u16, pad_ht: u16,
+    activation_min: i32, activation_max: i32,
+    channels: u16,
+) {
+    unsafe {
+        self::esp_nn_avg_pool_s8_ansi_abi_raw(
+            input, input_wd, input_ht,
+            output, output_wd, output_ht,
+            stride_wd as u32, stride_ht as u32,
+            filter_wd as u32, filter_ht as u32,
+            pad_wd as u32, pad_ht as u32,
+            activation_min, activation_max,
+            channels as u32,
+        )
+    }
+}
+
+#[inline]
+pub unsafe fn esp_nn_max_pool_s8_ansi(
+    input: *const i8,
+    input_wd: u16, input_ht: u16,
+    output: *mut i8,
+    output_wd: u16, output_ht: u16,
+    stride_wd: u16, stride_ht: u16,
+    filter_wd: u16, filter_ht: u16,
+    pad_wd: u16, pad_ht: u16,
+    activation_min: i32, activation_max: i32,
+    channels: u16,
+) {
+    unsafe {
+        self::esp_nn_max_pool_s8_ansi_abi_raw(
+            input, input_wd, input_ht,
+            output, output_wd, output_ht,
+            stride_wd as u32, stride_ht as u32,
+            filter_wd as u32, filter_ht as u32,
+            pad_wd as u32, pad_ht as u32,
+            activation_min, activation_max,
+            channels as u32,
+        )
+    }
+}
+
+#[inline]
+pub unsafe fn esp_nn_avg_pool_s8_esp32s3(
+    input: *const i8,
+    input_wd: u16, input_ht: u16,
+    output: *mut i8,
+    output_wd: u16, output_ht: u16,
+    stride_wd: u16, stride_ht: u16,
+    filter_wd: u16, filter_ht: u16,
+    pad_wd: u16, pad_ht: u16,
+    activation_min: i32, activation_max: i32,
+    channels: u16,
+) {
+    unsafe {
+        self::esp_nn_avg_pool_s8_esp32s3_abi_raw(
+            input, input_wd, input_ht,
+            output, output_wd, output_ht,
+            stride_wd as u32, stride_ht as u32,
+            filter_wd as u32, filter_ht as u32,
+            pad_wd as u32, pad_ht as u32,
+            activation_min, activation_max,
+            channels as u32,
+        )
+    }
+}
+
+#[inline]
+pub unsafe fn esp_nn_max_pool_s8_esp32s3(
+    input: *const i8,
+    input_wd: u16, input_ht: u16,
+    output: *mut i8,
+    output_wd: u16, output_ht: u16,
+    stride_wd: u16, stride_ht: u16,
+    filter_wd: u16, filter_ht: u16,
+    pad_wd: u16, pad_ht: u16,
+    activation_min: i32, activation_max: i32,
+    channels: u16,
+) {
+    unsafe {
+        self::esp_nn_max_pool_s8_esp32s3_abi_raw(
+            input, input_wd, input_ht,
+            output, output_wd, output_ht,
+            stride_wd as u32, stride_ht as u32,
+            filter_wd as u32, filter_ht as u32,
+            pad_wd as u32, pad_ht as u32,
+            activation_min, activation_max,
+            channels as u32,
+        )
+    }
+}
+
+// ---- Fully connected wrappers ----
+
+#[inline]
+pub unsafe fn esp_nn_fully_connected_s8_ansi(
+    input_data: *const i8,
+    input_offset: i32,
+    row_len: u16,
+    filter_data: *const i8,
+    filter_offset: i32,
+    bias: *const i32,
+    out_data: *mut i8,
+    out_channels: u16,
+    out_offset: i32,
+    out_shift: i32,
+    out_mult: i32,
+    activation_min: i32,
+    activation_max: i32,
+) {
+    unsafe {
+        self::esp_nn_fully_connected_s8_ansi_abi_raw(
+            input_data, input_offset, row_len,
+            filter_data, filter_offset, bias,
+            out_data, out_channels as u32, out_offset,
+            out_shift, out_mult, activation_min, activation_max,
+        )
+    }
+}
+
+#[inline]
+pub unsafe fn esp_nn_fully_connected_s8_esp32s3(
+    input_data: *const i8,
+    input_offset: i32,
+    row_len: u16,
+    filter_data: *const i8,
+    filter_offset: i32,
+    bias: *const i32,
+    out_data: *mut i8,
+    out_channels: u16,
+    out_offset: i32,
+    out_shift: i32,
+    out_mult: i32,
+    activation_min: i32,
+    activation_max: i32,
+) {
+    unsafe {
+        self::esp_nn_fully_connected_s8_esp32s3_abi_raw(
+            input_data, input_offset, row_len,
+            filter_data, filter_offset, bias,
+            out_data, out_channels as u32, out_offset,
+            out_shift, out_mult, activation_min, activation_max,
+        )
+    }
+}
+
+#[inline]
+pub unsafe fn esp_nn_fully_connected_per_ch_s8_ansi(
+    input_data: *const i8,
+    input_offset: i32,
+    row_len: u16,
+    filter_data: *const i8,
+    filter_offset: i32,
+    bias: *const i32,
+    out_data: *mut i8,
+    out_channels: u16,
+    out_offset: i32,
+    out_shift: *const i32,
+    out_mult: *const i32,
+    activation_min: i32,
+    activation_max: i32,
+) {
+    unsafe {
+        self::esp_nn_fully_connected_per_ch_s8_ansi_abi_raw(
+            input_data, input_offset, row_len,
+            filter_data, filter_offset, bias,
+            out_data, out_channels as u32, out_offset,
+            out_shift, out_mult, activation_min, activation_max,
+        )
+    }
+}
+
+#[inline]
+pub unsafe fn esp_nn_fully_connected_per_ch_s8_esp32s3(
+    input_data: *const i8,
+    input_offset: i32,
+    row_len: u16,
+    filter_data: *const i8,
+    filter_offset: i32,
+    bias: *const i32,
+    out_data: *mut i8,
+    out_channels: u16,
+    out_offset: i32,
+    out_shift: *const i32,
+    out_mult: *const i32,
+    activation_min: i32,
+    activation_max: i32,
+) {
+    unsafe {
+        self::esp_nn_fully_connected_per_ch_s8_esp32s3_abi_raw(
+            input_data, input_offset, row_len,
+            filter_data, filter_offset, bias,
+            out_data, out_channels as u32, out_offset,
+            out_shift, out_mult, activation_min, activation_max,
+        )
+    }
+}
+
+// ---- Hard swish wrappers ----
+
+#[inline]
+pub unsafe fn esp_nn_hard_swish_s8_ansi(
+    input: *const i8,
+    output: *mut i8,
+    size: i32,
+    input_zero_point: i16,
+    output_mult_fxp: i16,
+    reluish_mult_fxp: i16,
+    reluish_mult_exp: i32,
+    output_mult_exp: i32,
+    output_zero_point: i16,
+) {
+    unsafe {
+        self::esp_nn_hard_swish_s8_ansi_abi_raw(
+            input, output, size,
+            input_zero_point, output_mult_fxp, reluish_mult_fxp,
+            reluish_mult_exp, output_mult_exp,
+            output_zero_point as i32,
+        )
+    }
+}
+
+#[inline]
+pub unsafe fn esp_nn_hard_swish_s8_esp32s3(
+    input: *const i8,
+    output: *mut i8,
+    size: i32,
+    input_zero_point: i16,
+    output_mult_fxp: i16,
+    reluish_mult_fxp: i16,
+    reluish_mult_exp: i32,
+    output_mult_exp: i32,
+    output_zero_point: i16,
+) {
+    unsafe {
+        self::esp_nn_hard_swish_s8_esp32s3_abi_raw(
+            input, output, size,
+            input_zero_point, output_mult_fxp, reluish_mult_fxp,
+            reluish_mult_exp, output_mult_exp,
+            output_zero_point as i32,
+        )
+    }
+}
+"#;
+
+/// Fix Xtensa ABI: widen stack-passed small integer params in affected functions.
+///
+/// The Xtensa windowed ABI requires all stack arguments to occupy at least one
+/// 4-byte word, but Rust currently stores stack-passed small FFI args with a
+/// smaller store. The C callee reads these values from the low bits of the
+/// 32-bit word, so widening only the stack-passed Rust FFI types keeps the C
+/// ABI layout correct.
+fn fix_abi_stack_args(src: String) -> String {
+    const POOL_FNS: &[&str] = &[
+        "esp_nn_avg_pool_s8_ansi",
+        "esp_nn_max_pool_s8_ansi",
+        "esp_nn_avg_pool_s8_esp32s3",
+        "esp_nn_max_pool_s8_esp32s3",
+    ];
+
+    let mut result = src;
+
+    for fn_name in POOL_FNS {
+        let search = format!("pub fn {fn_name}(");
+        if let Some(start) = result.find(&search)
+            && let Some(end) = result[start..].find(");")
+        {
+            let end = start + end + 2;
+            let fn_block = &result[start..end];
+            let fixed = fn_block
+                .replace("stride_wd: u16", "stride_wd: u32")
+                .replace("stride_ht: u16", "stride_ht: u32")
+                .replace("filter_wd: u16", "filter_wd: u32")
+                .replace("filter_ht: u16", "filter_ht: u32")
+                .replace("pad_wd: u16", "pad_wd: u32")
+                .replace("pad_ht: u16", "pad_ht: u32")
+                .replace("channels: u16", "channels: u32")
+                .replace(
+                    &search,
+                    &format!("#[link_name = \"{fn_name}\"]\n    pub fn {fn_name}_abi_raw("),
+                );
+
+            result.replace_range(start..end, &fixed);
+        }
+    }
+
+    const FC_FNS: &[&str] = &[
+        "esp_nn_fully_connected_s8_ansi",
+        "esp_nn_fully_connected_s8_esp32s3",
+        "esp_nn_fully_connected_per_ch_s8_ansi",
+        "esp_nn_fully_connected_per_ch_s8_esp32s3",
+    ];
+
+    for fn_name in FC_FNS {
+        let search = format!("pub fn {fn_name}(");
+        if let Some(start) = result.find(&search)
+            && let Some(end) = result[start..].find(");")
+        {
+            let end = start + end + 2;
+            let fn_block = &result[start..end];
+            let fixed = fn_block
+                .replace("out_channels: u16", "out_channels: u32")
+                .replace(
+                    &search,
+                    &format!("#[link_name = \"{fn_name}\"]\n    pub fn {fn_name}_abi_raw("),
+                );
+
+            result.replace_range(start..end, &fixed);
+        }
+    }
+
+    const HARD_SWISH_FNS: &[&str] = &["esp_nn_hard_swish_s8_ansi", "esp_nn_hard_swish_s8_esp32s3"];
+
+    for fn_name in HARD_SWISH_FNS {
+        let search = format!("pub fn {fn_name}(");
+        if let Some(start) = result.find(&search)
+            && let Some(end) = result[start..].find(");")
+        {
+            let end = start + end + 2;
+            let fn_block = &result[start..end];
+            let fixed = fn_block
+                .replace("output_zero_point: i16", "output_zero_point: i32")
+                .replace(
+                    &search,
+                    &format!("#[link_name = \"{fn_name}\"]\n    pub fn {fn_name}_abi_raw("),
+                );
+
+            result.replace_range(start..end, &fixed);
+        }
+    }
+
+    let mut wrappers = ABI_WRAPPERS.to_string();
+    for fn_name in POOL_FNS
+        .iter()
+        .chain(FC_FNS.iter())
+        .chain(HARD_SWISH_FNS.iter())
+    {
+        let raw_search = format!("pub fn {fn_name}_abi_raw(");
+        if !result.contains(&raw_search) {
+            remove_abi_wrapper(&mut wrappers, fn_name);
+        }
+    }
+
+    result.push_str(&wrappers);
+
+    result
+}
+
+fn remove_abi_wrapper(wrappers: &mut String, fn_name: &str) {
+    let search = format!("pub unsafe fn {fn_name}(");
+    let Some(start) = wrappers.find(&search) else {
+        return;
+    };
+    let start = wrappers[..start].rfind("\n#[inline]").unwrap_or(start);
+    let after_search = start + "\n#[inline]".len();
+    let end = wrappers[after_search..]
+        .find("\n#[inline]")
+        .map_or(wrappers.len(), |offset| after_search + offset);
+
+    wrappers.replace_range(start..end, "");
 }
 
 fn compile_esp_nn(esp_nn_dir: &Path, include_dir: &Path, common_dir: &Path, chip: Chip) {

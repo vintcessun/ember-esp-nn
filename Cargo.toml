@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/ember_esp_nn", "crates/esp_nn_sys", "tests/ember-infer-test"]
+members = [
+    "crates/ember_esp_nn",
+    "crates/esp_nn_sys",
+    "tests/ember-infer-test",
+    "tests/ember-nn-kernels",
+]
 
 [profile.dev]
 opt-level = "s"

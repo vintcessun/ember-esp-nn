@@ -1,7 +1,7 @@
-#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_fully_connected_s8_esp32s3 as esp_nn_fully_connected_s8;
 #[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
 use esp_nn_sys::bindings::esp_nn_fully_connected_s8_ansi as esp_nn_fully_connected_s8;
+#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
+use esp_nn_sys::bindings::esp_nn_fully_connected_s8_esp32s3 as esp_nn_fully_connected_s8;
 
 use crate::quant::quantize_multiplier;
 use ember_infer_core::{FullyConnectedParams, FusedActivation, KernelError, Status};

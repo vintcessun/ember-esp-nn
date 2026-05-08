@@ -818,6 +818,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ember-nn-kernels"
+version = "0.1.0"
+dependencies = [
+ "critical-section",
+ "defmt 1.0.1",
+ "ember-infer-core",
+ "ember_esp_nn",
+ "esp-alloc",
+ "esp-bootloader-esp-idf",
+ "esp-hal",
+ "esp_nn_sys",
+ "panic-rtt-target",
+ "rtt-target",
+]
+
+[[package]]
 name = "ember_esp_nn"
 version = "0.1.0"
 dependencies = [
@@ -1291,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "esp_nn_sys"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "bindgen",
  "cc",

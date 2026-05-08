@@ -84,8 +84,7 @@ embedded-test = { version = "0.7.1", features = [
 cc = "1.2.61"
 
 [features]
-default = ["esp32s3"]
+default = ["ansi"]
 esp32s3 = ["ember_esp_nn/esp32s3"]
 esp32p4 = ["ember_esp_nn/esp32p4"]
 ansi = ["ember_esp_nn/ansi"]
-assume-aligned = ["ember_esp_nn/assume-aligned"]

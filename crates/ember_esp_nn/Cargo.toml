@@ -10,8 +10,7 @@ ember-infer-core = "0.1"
 esp_nn_sys = { path = "../esp_nn_sys" }
 
 [features]
-default = []
-assume-aligned = []
+default = ["esp32s3"]
 esp32s3 = ["esp_nn_sys/esp32s3"]
 esp32p4 = ["esp_nn_sys/esp32p4"]
 ansi = ["esp_nn_sys/ansi"]

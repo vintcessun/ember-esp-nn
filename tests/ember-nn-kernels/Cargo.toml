@@ -1,0 +1,25 @@
+[package]
+default-run = "ember-nn-kernels"
+edition = "2024"
+name = "ember-nn-kernels"
+rust-version = "1.88"
+version = "0.1.0"
+
+[[bin]]
+name = "ember-nn-kernels"
+path = "./src/bin/main.rs"
+
+[dependencies]
+esp-hal = { version = "~1.1.0", features = ["defmt", "esp32s3", "unstable"] }
+ember_esp_nn = { path = "../../crates/ember_esp_nn", features = ["esp32s3"] }
+esp_nn_sys = { path = "../../crates/esp_nn_sys" }
+ember-infer-core = "0.1"
+panic-rtt-target = { version = "0.2.0", features = ["defmt"] }
+
+
+defmt = "1.0.1"
+esp-bootloader-esp-idf = { version = "0.5.0", features = ["defmt", "esp32s3"] }
+
+critical-section = "1.2.0"
+esp-alloc = { version = "0.10.0", features = ["compat", "defmt"] }
+rtt-target = { version = "0.6.2", features = ["defmt"] }

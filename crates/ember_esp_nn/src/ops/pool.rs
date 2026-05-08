@@ -1,12 +1,12 @@
-#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_avg_pool_s8_esp32s3 as esp_nn_avg_pool_s8;
 #[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
 use esp_nn_sys::bindings::esp_nn_avg_pool_s8_ansi as esp_nn_avg_pool_s8;
-
 #[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_max_pool_s8_esp32s3 as esp_nn_max_pool_s8;
+use esp_nn_sys::bindings::esp_nn_avg_pool_s8_esp32s3 as esp_nn_avg_pool_s8;
+
 #[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
 use esp_nn_sys::bindings::esp_nn_max_pool_s8_ansi as esp_nn_max_pool_s8;
+#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
+use esp_nn_sys::bindings::esp_nn_max_pool_s8_esp32s3 as esp_nn_max_pool_s8;
 
 use ember_infer_core::{FusedActivation, KernelError, Padding, PoolParams, Status};
 
@@ -15,29 +15,52 @@ pub fn run_avg(params: PoolParams<'_>) -> Status {
 }
 
 pub fn run_max(params: PoolParams<'_>) -> Status {
+    #[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
+    {
+        // esp32s3 assembly has a padding bug — fall back to ansi when pad > 0
+        let (pad_w, pad_h) = match params.padding {
+            Padding::Valid => (0i32, 0i32),
+            Padding::Same => (
+                compute_padding(
+                    params.input_shape[2] as i32,
+                    params.output_shape[2] as i32,
+                    params.stride_w,
+                    params.filter_w,
+                ),
+                compute_padding(
+                    params.input_shape[1] as i32,
+                    params.output_shape[1] as i32,
+                    params.stride_h,
+                    params.filter_h,
+                ),
+            ),
+        };
+        if pad_w > 0 || pad_h > 0 {
+            return run(params, esp_nn_sys::bindings::esp_nn_max_pool_s8_ansi);
+        }
+    }
     run(params, esp_nn_max_pool_s8)
 }
 
-fn run(
-    params: PoolParams<'_>,
-    kernel: unsafe extern "C" fn(
-        *const i8,
-        u16,
-        u16,
-        *mut i8,
-        u16,
-        u16,
-        u16,
-        u16,
-        u16,
-        u16,
-        u16,
-        u16,
-        i32,
-        i32,
-        u16,
-    ),
-) -> Status {
+type PoolKernel = unsafe fn(
+    *const i8,
+    u16,
+    u16,
+    *mut i8,
+    u16,
+    u16,
+    u16,
+    u16,
+    u16,
+    u16,
+    u16,
+    u16,
+    i32,
+    i32,
+    u16,
+);
+
+fn run(params: PoolParams<'_>, kernel: PoolKernel) -> Status {
     if params.input_shape[0] != 1
         || params.output_shape[0] != 1
         || params.input_shape[3] != params.output_shape[3]
