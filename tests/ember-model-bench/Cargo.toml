@@ -1,0 +1,51 @@
+[package]
+edition = "2024"
+name = "ember-model-bench"
+rust-version = "1.88"
+version = "0.1.0"
+
+[[bin]]
+name = "ember-model-bench-person-detect"
+path = "./src/bin/person_detect.rs"
+test = false
+
+[[test]]
+harness = false
+name = "hello_test"
+
+[lib]
+test = false
+
+[dependencies]
+esp-hal = { version = "~1.1.0", features = ["defmt", "esp32s3", "unstable"] }
+
+
+defmt = "1.0.1"
+esp-bootloader-esp-idf = { version = "0.5.0", features = ["defmt", "esp32s3"] }
+
+critical-section = "1.2.0"
+ember-infer-core = "0.1.2"
+ember-infer-macros = "0.1.2"
+ember_esp_nn = { version = "0.1.0", path = "../../crates/ember_esp_nn", default-features = false }
+esp-alloc = { version = "0.10.0", features = ["defmt"] }
+panic-rtt-target = { version = "0.2.0", features = ["defmt"] }
+rtt-target = { version = "0.6.2", features = ["defmt"] }
+
+[dev-dependencies]
+embedded-test = { version = "0.7.1", features = [
+    "defmt",
+    "xtensa-semihosting",
+] }
+
+[features]
+default = ["esp32s3"]
+esp32s3 = ["ember_esp_nn/esp32s3"]
+esp32p4 = ["ember_esp_nn/esp32p4"]
+ansi = ["ember_esp_nn/ansi"]
+trace-ops = ["ember_esp_nn/trace-ops"]
+force-ansi-add = ["ember_esp_nn/force-ansi-add"]
+force-ansi-conv = ["ember_esp_nn/force-ansi-conv"]
+force-ansi-depthwise = ["ember_esp_nn/force-ansi-depthwise"]
+force-ansi-fc = ["ember_esp_nn/force-ansi-fc"]
+force-ansi-pool = ["ember_esp_nn/force-ansi-pool"]
+force-ansi-softmax = ["ember_esp_nn/force-ansi-softmax"]

@@ -1,3 +1,5 @@
+include = [{ path = "esp.local.toml", optional = true }]
+
 [build]
 target = "xtensa-esp32s3-none-elf"
 rustflags = ["-C", "link-arg=-nostartfiles"]
@@ -7,7 +9,6 @@ runner = "probe-rs run --chip=esp32s3 --preverify --always-print-stacktrace --no
 
 [env]
 DEFMT_LOG = "info"
-
 
 [unstable]
 build-std = ["alloc", "core"]

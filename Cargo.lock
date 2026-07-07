@@ -772,15 +772,15 @@ dependencies = [
 
 [[package]]
 name = "ember-infer-core"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d05c7df8ae9d87c76bc4550a151d36c857edd1b145f6e3adf97306d46a8dd529"
+checksum = "5dc1569e7eaf4a55614b8da496f797ff43b04146aa7a876d28ab5d0e75755224"
 
 [[package]]
 name = "ember-infer-macros"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73c8e55c9fb1e9b948b59a00fb41cf080ad14a31e22ebea74ac181159c55913b"
+checksum = "df8aa3368b05174cfdca50520e21351c33f34398f89e434d75b45f40ee5ac233"
 dependencies = [
  "flatbuffers",
  "proc-macro-error",
@@ -794,7 +794,6 @@ dependencies = [
 name = "ember-infer-test"
 version = "0.1.0"
 dependencies = [
- "cc",
  "critical-section",
  "defmt 1.0.1",
  "embassy-executor",
@@ -811,10 +810,28 @@ dependencies = [
  "esp-hal",
  "esp-radio",
  "esp-rtos",
+ "libm",
  "panic-rtt-target",
  "rtt-target",
  "smoltcp",
  "static_cell",
+]
+
+[[package]]
+name = "ember-model-bench"
+version = "0.1.0"
+dependencies = [
+ "critical-section",
+ "defmt 1.0.1",
+ "embedded-test",
+ "ember-infer-core",
+ "ember-infer-macros",
+ "ember_esp_nn",
+ "esp-alloc",
+ "esp-bootloader-esp-idf",
+ "esp-hal",
+ "panic-rtt-target",
+ "rtt-target",
 ]
 
 [[package]]
@@ -837,8 +854,11 @@ dependencies = [
 name = "ember_esp_nn"
 version = "0.1.0"
 dependencies = [
+ "cc",
+ "defmt 1.0.1",
  "ember-infer-core",
  "esp_nn_sys",
+ "libm",
 ]
 
 [[package]]
@@ -1595,6 +1615,12 @@ dependencies = [
  "cfg-if",
  "windows-link",
 ]
+
+[[package]]
+name = "libm"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "linked_list_allocator"

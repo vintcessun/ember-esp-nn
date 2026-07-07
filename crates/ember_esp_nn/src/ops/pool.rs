@@ -1,23 +1,54 @@
-#[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
-use esp_nn_sys::bindings::esp_nn_avg_pool_s8_ansi as esp_nn_avg_pool_s8;
-#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_avg_pool_s8_esp32s3 as esp_nn_avg_pool_s8;
-
-#[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
-use esp_nn_sys::bindings::esp_nn_max_pool_s8_ansi as esp_nn_max_pool_s8;
-#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_max_pool_s8_esp32s3 as esp_nn_max_pool_s8;
+#[cfg(all(feature = "esp32s3", not(feature = "force-ansi-pool")))]
+use esp_nn_sys::bindings::{
+    esp_nn_avg_pool_s8_esp32s3 as esp_nn_avg_pool_s8,
+    esp_nn_max_pool_s8_esp32s3 as esp_nn_max_pool_s8,
+};
+#[cfg(all(feature = "esp32p4", not(feature = "force-ansi-pool")))]
+use esp_nn_sys::bindings::{
+    esp_nn_avg_pool_s8_esp32p4 as esp_nn_avg_pool_s8,
+    esp_nn_max_pool_s8_esp32p4 as esp_nn_max_pool_s8,
+};
+#[cfg(any(
+    feature = "force-ansi-pool",
+    not(any(feature = "esp32s3", feature = "esp32p4"))
+))]
+use esp_nn_sys::bindings::{
+    esp_nn_avg_pool_s8_ansi as esp_nn_avg_pool_s8,
+    esp_nn_max_pool_s8_ansi as esp_nn_max_pool_s8,
+};
 
 use ember_infer_core::{FusedActivation, KernelError, Padding, PoolParams, Status};
 
+/// The ESP32-S3 pool kernels read the input with aligned SIMD loads, so a
+/// non-16-byte-aligned input tensor is read shifted (silently wrong). The
+/// `#[model]` macro aligns intermediate activations, but a model that feeds an
+/// unaligned buffer (e.g. the model input) straight into a pool would still hit
+/// this — route those to the alignment-agnostic ANSI kernel. On other targets
+/// the primary kernel is alignment-agnostic, so this is always `true`.
+#[cfg(all(feature = "esp32s3", not(feature = "force-ansi-pool")))]
+#[inline]
+fn pool_can_use_simd(input: *const i8) -> bool {
+    (input as usize).is_multiple_of(16)
+}
+#[cfg(not(all(feature = "esp32s3", not(feature = "force-ansi-pool"))))]
+#[inline]
+fn pool_can_use_simd(_input: *const i8) -> bool {
+    true
+}
+
 pub fn run_avg(params: PoolParams<'_>) -> Status {
+    #[cfg(all(feature = "esp32s3", not(feature = "force-ansi-pool")))]
+    if !pool_can_use_simd(params.input.as_ptr()) {
+        return run(params, esp_nn_sys::bindings::esp_nn_avg_pool_s8_ansi);
+    }
     run(params, esp_nn_avg_pool_s8)
 }
 
 pub fn run_max(params: PoolParams<'_>) -> Status {
-    #[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
+    #[cfg(all(feature = "esp32s3", not(feature = "force-ansi-pool")))]
     {
-        // esp32s3 assembly has a padding bug — fall back to ansi when pad > 0
+        // esp32s3 assembly has a padding bug — fall back to ansi when pad > 0,
+        // and it also requires a 16-byte aligned input.
         let (pad_w, pad_h) = match params.padding {
             Padding::Valid => (0i32, 0i32),
             Padding::Same => (
@@ -35,7 +66,7 @@ pub fn run_max(params: PoolParams<'_>) -> Status {
                 ),
             ),
         };
-        if pad_w > 0 || pad_h > 0 {
+        if pad_w > 0 || pad_h > 0 || !pool_can_use_simd(params.input.as_ptr()) {
             return run(params, esp_nn_sys::bindings::esp_nn_max_pool_s8_ansi);
         }
     }
@@ -88,8 +119,7 @@ fn run(params: PoolParams<'_>, kernel: PoolKernel) -> Status {
             ),
         ),
     };
-    let (activation_min, activation_max) =
-        activation_range(params.activation, params.output_quant.zero_point);
+    let (activation_min, activation_max) = activation_range(params.activation, params.output_quant);
 
     unsafe {
         kernel(
@@ -144,10 +174,27 @@ fn compute_padding(input_dim: i32, output_dim: i32, stride: i32, filter: i32) ->
 }
 
 #[inline]
-fn activation_range(act: FusedActivation, out_zero_point: i32) -> (i32, i32) {
+fn activation_range(act: FusedActivation, output_quant: ember_infer_core::QuantParam) -> (i32, i32) {
     match act {
         FusedActivation::None => (-128, 127),
-        FusedActivation::Relu | FusedActivation::Relu6 => (out_zero_point.max(-128), 127),
-        _ => (-128, 127),
+        FusedActivation::Relu => (output_quant.zero_point.max(-128), 127),
+        FusedActivation::Relu6 => (
+            output_quant.zero_point.max(-128),
+            (output_quant.zero_point + round_f32_to_i32(6.0 / output_quant.scale)).min(127),
+        ),
+        FusedActivation::ReluN1To1 | FusedActivation::Tanh => (
+            (output_quant.zero_point + round_f32_to_i32(-1.0 / output_quant.scale)).max(-128),
+            (output_quant.zero_point + round_f32_to_i32(1.0 / output_quant.scale)).min(127),
+        ),
+        FusedActivation::Sigmoid => (
+            output_quant.zero_point.max(-128),
+            (output_quant.zero_point + round_f32_to_i32(1.0 / output_quant.scale)).min(127),
+        ),
+        FusedActivation::SignBit => (-128, 127),
     }
+}
+
+#[inline]
+fn round_f32_to_i32(value: f32) -> i32 {
+    libm::roundf(value) as i32
 }

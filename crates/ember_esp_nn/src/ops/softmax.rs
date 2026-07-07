@@ -1,22 +1,49 @@
-#[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
-use esp_nn_sys::bindings::esp_nn_get_softmax_scratch_size_ansi as esp_nn_get_softmax_scratch_size;
-#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_get_softmax_scratch_size_opt as esp_nn_get_softmax_scratch_size;
-#[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
-use esp_nn_sys::bindings::esp_nn_set_softmax_scratch_buf_ansi as esp_nn_set_softmax_scratch_buf;
-#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_set_softmax_scratch_buf_opt as esp_nn_set_softmax_scratch_buf;
-#[cfg(not(any(feature = "esp32s3", feature = "esp32p4")))]
-use esp_nn_sys::bindings::esp_nn_softmax_s8_ansi as esp_nn_softmax_s8;
-#[cfg(any(feature = "esp32s3", feature = "esp32p4"))]
-use esp_nn_sys::bindings::esp_nn_softmax_s8_opt as esp_nn_softmax_s8;
-
-use core::ffi::c_void;
+#[cfg(all(feature = "esp32s3", not(feature = "force-ansi-softmax")))]
+use esp_nn_sys::bindings::{
+    esp_nn_get_softmax_scratch_size_esp32s3 as esp_nn_get_softmax_scratch_size,
+    esp_nn_set_softmax_scratch_buf_esp32s3 as esp_nn_set_softmax_scratch_buf,
+    esp_nn_softmax_s8_esp32s3 as esp_nn_softmax_s8,
+};
+#[cfg(all(feature = "esp32p4", not(feature = "force-ansi-softmax")))]
+use esp_nn_sys::bindings::{
+    esp_nn_get_softmax_scratch_size_esp32p4 as esp_nn_get_softmax_scratch_size,
+    esp_nn_set_softmax_scratch_buf_esp32p4 as esp_nn_set_softmax_scratch_buf,
+    esp_nn_softmax_s8_esp32p4 as esp_nn_softmax_s8,
+};
+#[cfg(any(
+    feature = "force-ansi-softmax",
+    not(any(feature = "esp32s3", feature = "esp32p4"))
+))]
+use esp_nn_sys::bindings::{
+    esp_nn_get_softmax_scratch_size_ansi as esp_nn_get_softmax_scratch_size,
+    esp_nn_set_softmax_scratch_buf_ansi as esp_nn_set_softmax_scratch_buf,
+    esp_nn_softmax_s8_ansi as esp_nn_softmax_s8,
+};
+// ESP32-S3 only: alignment-agnostic fallback. The S3 softmax uses an aligned
+// SIMD max-reduction over the input for rows of length >= 32, so an unaligned
+// input is read shifted (silently wrong) for larger class counts.
+#[cfg(all(feature = "esp32s3", not(feature = "force-ansi-softmax")))]
+use esp_nn_sys::bindings::{
+    esp_nn_set_softmax_scratch_buf_ansi, esp_nn_softmax_s8_ansi,
+};
 
 use crate::quant::quantize_multiplier;
 use ember_infer_core::{KernelError, SoftmaxParams, Status};
 
 const INPUT_INTEGER_BITS: i32 = 5;
+
+/// Whether the S3 softmax can be used for this input (16-byte aligned). Always
+/// `true` on non-S3 targets (alignment-agnostic primary).
+#[cfg(all(feature = "esp32s3", not(feature = "force-ansi-softmax")))]
+#[inline]
+fn softmax_can_use_simd(input: *const i8) -> bool {
+    (input as usize).is_multiple_of(16)
+}
+#[cfg(not(all(feature = "esp32s3", not(feature = "force-ansi-softmax"))))]
+#[inline]
+fn softmax_can_use_simd(_input: *const i8) -> bool {
+    true
+}
 
 pub fn run(params: SoftmaxParams<'_>) -> Status {
     let batch = params.input_shape[0];
@@ -37,17 +64,25 @@ pub fn run(params: SoftmaxParams<'_>) -> Status {
     let (mult, shift) = quantize_multiplier(scale);
     let diff_min = -calculate_input_radius(INPUT_INTEGER_BITS, shift);
 
+    let scratch_ptr = super::aligned_scratch_ptr(params.scratch);
+    let input = params.input.as_ptr();
+    let output = params.output.as_mut_ptr();
+
     unsafe {
-        esp_nn_set_softmax_scratch_buf(params.scratch.as_mut_ptr().cast::<c_void>());
-        esp_nn_softmax_s8(
-            params.input.as_ptr(),
-            batch as i32,
-            num_classes as i32,
-            mult,
-            shift,
-            diff_min,
-            params.output.as_mut_ptr(),
-        );
+        if softmax_can_use_simd(input) {
+            esp_nn_set_softmax_scratch_buf(scratch_ptr);
+            esp_nn_softmax_s8(input, batch as i32, num_classes as i32, mult, shift, diff_min, output);
+        } else {
+            // Only reachable on ESP32-S3 (elsewhere `softmax_can_use_simd` is
+            // always true and the primary kernel is alignment-agnostic).
+            #[cfg(all(feature = "esp32s3", not(feature = "force-ansi-softmax")))]
+            {
+                esp_nn_set_softmax_scratch_buf_ansi(scratch_ptr);
+                esp_nn_softmax_s8_ansi(
+                    input, batch as i32, num_classes as i32, mult, shift, diff_min, output,
+                );
+            }
+        }
     }
 
     Ok(())
@@ -59,7 +94,14 @@ pub fn scratch_size(num_classes: usize) -> usize {
     }
 
     let size = unsafe { esp_nn_get_softmax_scratch_size(num_classes as i32, 1) };
-    size.max(0) as usize
+    let size = size.max(0) as usize;
+    // Reserve slack so the base can be bumped to a 16-byte boundary at call time
+    // (see `super::aligned_scratch_ptr`).
+    if size == 0 {
+        0
+    } else {
+        size + super::SCRATCH_ALIGN
+    }
 }
 
 #[inline]

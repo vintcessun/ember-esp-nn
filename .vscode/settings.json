@@ -9,6 +9,7 @@
     "Cargo.toml"
   ],
   "rust-analyzer.cargo.buildScripts.enable": true,
+  "rust-analyzer.cargo.configPath": ".cargo/config.toml",
   "evenBetterToml.schema.associations": {
     "rust-toolchain.toml": ".vscode/rust-toolchain.schema.json"
   }

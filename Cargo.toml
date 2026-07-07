@@ -4,6 +4,7 @@ members = [
     "crates/ember_esp_nn",
     "crates/esp_nn_sys",
     "tests/ember-infer-test",
+    "tests/ember-model-bench",
     "tests/ember-nn-kernels",
 ]
 

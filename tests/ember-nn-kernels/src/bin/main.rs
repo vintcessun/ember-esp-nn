@@ -266,7 +266,11 @@ fn verify_outputs(name: &str, iter: usize, out_ansi: &[i8], out_opt: &[i8]) -> b
         if let Some(idx) = first_diff {
             let start = idx.saturating_sub(2);
             let end = (idx + 6).min(out_ansi.len());
-            info!("  first diff >1 at index={} (out of {})", idx, out_ansi.len());
+            info!(
+                "  first diff >1 at index={} (out of {})",
+                idx,
+                out_ansi.len()
+            );
             log_delay();
             info!("  ansi[{}..{}]: {:?}", start, end, &out_ansi[start..end]);
             log_delay();

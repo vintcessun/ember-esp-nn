@@ -5,8 +5,18 @@ rust-version = "1.88"
 version = "0.1.0"
 
 [[bin]]
-name = "ember-infer-test"
-path = "./src/bin/main.rs"
+name = "ember-infer-test-sine"
+path = "./src/bin/sine.rs"
+test = false
+
+[[bin]]
+name = "ember-infer-test-speech"
+path = "./src/bin/speech.rs"
+test = false
+
+[[bin]]
+name = "ember-infer-test-mul"
+path = "./src/bin/mul_test.rs"
 test = false
 
 [[test]]
@@ -68,9 +78,10 @@ smoltcp = { version = "0.13.0", default-features = false, features = [
 
 critical-section = "1.2.0"
 static_cell = "2.1.1"
-ember-infer-core = "0.1"
-ember-infer-macros = "0.1"
+ember-infer-core = "0.1.2"
+ember-infer-macros = "0.1.2"
 ember_esp_nn = { version = "0.1.0", path = "../../crates/ember_esp_nn" }
+libm = "0.2"
 
 [dev-dependencies]
 embedded-test = { version = "0.7.1", features = [
@@ -79,9 +90,6 @@ embedded-test = { version = "0.7.1", features = [
     "external-executor",
     "xtensa-semihosting",
 ] }
-
-[build-dependencies]
-cc = "1.2.61"
 
 [features]
 default = ["ansi"]
