@@ -15,8 +15,8 @@ path = "./src/bin/speech.rs"
 test = false
 
 [[bin]]
-name = "ember-infer-test-mul"
-path = "./src/bin/mul_test.rs"
+name = "ember-infer-test-ops"
+path = "./src/bin/ops_test.rs"
 test = false
 
 [[test]]

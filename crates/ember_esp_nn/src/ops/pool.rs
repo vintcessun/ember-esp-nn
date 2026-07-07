@@ -23,17 +23,14 @@ use ember_infer_core::{FusedActivation, KernelError, Padding, PoolParams, Status
 /// non-16-byte-aligned input tensor is read shifted (silently wrong). The
 /// `#[model]` macro aligns intermediate activations, but a model that feeds an
 /// unaligned buffer (e.g. the model input) straight into a pool would still hit
-/// this — route those to the alignment-agnostic ANSI kernel. On other targets
-/// the primary kernel is alignment-agnostic, so this is always `true`.
+/// this — route those to the alignment-agnostic ANSI kernel.
+///
+/// Only referenced in the ESP32-S3 (non-forced-ANSI) build; other configs pick
+/// the alignment-agnostic kernel unconditionally.
 #[cfg(all(feature = "esp32s3", not(feature = "force-ansi-pool")))]
 #[inline]
 fn pool_can_use_simd(input: *const i8) -> bool {
     (input as usize).is_multiple_of(16)
-}
-#[cfg(not(all(feature = "esp32s3", not(feature = "force-ansi-pool"))))]
-#[inline]
-fn pool_can_use_simd(_input: *const i8) -> bool {
-    true
 }
 
 pub fn run_avg(params: PoolParams<'_>) -> Status {
